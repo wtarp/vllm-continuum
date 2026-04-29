@@ -1,6 +1,5 @@
 import logging
 import os
-from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -30,7 +29,7 @@ class SglangModelConfig:
     port: int | None = None  # Override port in base_url if specified
     api_key: str = "EMPTY"  # SGLang doesn't require API key
     model_kwargs: dict[str, Any] = field(default_factory=dict)
-    job_id: int = 0  # Instance/job ID for job-aware routing
+    job_id: int | None = None  # Instance/job ID for job-aware routing
     routing_key: str | None = None  # Explicit routing key override
     session_params: dict[str, Any] = field(default_factory=dict)  # Optional SGLang session metadata
     stream: bool = True  # Enable streaming responses
@@ -131,16 +130,24 @@ class SglangModel:
     def _build_extra_body(
         self, params: dict[str, Any]
     ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Build the request kwargs split used for SGLang chat completions.
+
+        Returns a tuple of OpenAI-compatible request parameters and the
+        SGLang-specific `extra_body` metadata forwarded with the request.
+        """
         filtered_params, extra_body = self._split_request_params(params)
         if self.config.session_params:
-            extra_body.setdefault("session_params", deepcopy(self.config.session_params))
-        if self.config.job_id > 0:
+            extra_body.setdefault("session_params", dict(self.config.session_params))
+        if self.config.routing_key is not None or self.config.job_id is not None:
+            routing_key = (
+                self.config.routing_key
+                if self.config.routing_key is not None
+                else str(self.config.job_id)
+            )
             extra_body.setdefault(
                 "routing_key",
-                self.config.routing_key or str(self.config.job_id),
+                routing_key,
             )
-        elif self.config.routing_key is not None:
-            extra_body.setdefault("routing_key", self.config.routing_key)
         return filtered_params, extra_body
 
     @retry(

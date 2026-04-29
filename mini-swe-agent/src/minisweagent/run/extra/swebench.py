@@ -130,6 +130,7 @@ def _inject_instance_scheduling_metadata(
 
     if "vllm" in model_class:
         updated_model_config["job_id"] = instance_number
+        # mini-swe-agent's vLLM wrapper interprets 0 as "no explicit step cap".
         updated_model_config["step_limit"] = agent_config.get("step_limit", 0)
     elif "sglang" in model_class:
         updated_model_config["job_id"] = instance_number

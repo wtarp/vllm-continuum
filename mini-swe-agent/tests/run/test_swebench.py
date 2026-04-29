@@ -185,7 +185,12 @@ def test_filter_instances_no_matches():
 def test_inject_instance_scheduling_metadata(model_class, agent_config, expected):
     """Test per-instance scheduling metadata injection for supported local-serving models."""
     model_config = {"model_class": model_class}
-    assert _inject_instance_scheduling_metadata(model_config, agent_config, 3) == expected
+    result = _inject_instance_scheduling_metadata(model_config, agent_config, 3)
+    assert result == expected
+    if "vllm" in model_class.lower():
+        assert result["step_limit"] == agent_config.get("step_limit", 0)
+    if "sglang" in model_class.lower():
+        assert "step_limit" not in result
 
 
 def test_update_preds_file_new_file(tmp_path):

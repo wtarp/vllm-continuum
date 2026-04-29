@@ -97,3 +97,26 @@ def test_sglang_model_runtime_extra_body_overrides_defaults():
             "extra_key": "tenant-a",
         },
     )
+
+
+def test_sglang_model_job_id_zero_still_sets_routing_key():
+    """Test job_id zero is treated as a valid per-instance routing key."""
+    mock_client = MagicMock()
+    mock_response = MagicMock()
+    mock_message = MagicMock()
+    mock_message.content = "zero"
+    mock_response.choices = [MagicMock(message=mock_message)]
+    mock_response.model_dump.return_value = {"zero": True}
+    mock_client.chat.completions.create.return_value = mock_response
+
+    with patch("minisweagent.models.sglang_model.OpenAI", return_value=mock_client):
+        model = SglangModel(model_name="sglang-model", job_id=0)
+        model.query([{"role": "user", "content": "Hi"}], stream=False)
+
+    mock_client.chat.completions.create.assert_called_once_with(
+        model="sglang-model",
+        messages=[{"role": "user", "content": "Hi"}],
+        stream=False,
+        max_completion_tokens=2048,
+        extra_body={"routing_key": "0"},
+    )
