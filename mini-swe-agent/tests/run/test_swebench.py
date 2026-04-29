@@ -8,6 +8,7 @@ import pytest
 from minisweagent import package_dir
 from minisweagent.models.test_models import DeterministicModel
 from minisweagent.run.extra.swebench import (
+    _inject_instance_scheduling_metadata,
     filter_instances,
     get_swebench_docker_image_name,
     main,
@@ -169,6 +170,22 @@ def test_filter_instances_no_matches():
     instances = [{"instance_id": "django__test1"}, {"instance_id": "flask__test2"}]
     result = filter_instances(instances, filter_spec=r"nonexistent__.*", slice_spec="")
     assert result == []
+
+
+@pytest.mark.parametrize(
+    ("model_class", "agent_config", "expected"),
+    [
+        ("vllm", {"step_limit": 8}, {"model_class": "vllm", "job_id": 3, "step_limit": 8}),
+        ("minisweagent.models.vllm_model.VllmModel", {"step_limit": 5}, {"model_class": "minisweagent.models.vllm_model.VllmModel", "job_id": 3, "step_limit": 5}),
+        ("sglang", {"step_limit": 8}, {"model_class": "sglang", "job_id": 3}),
+        ("minisweagent.models.sglang_model.SglangModel", {}, {"model_class": "minisweagent.models.sglang_model.SglangModel", "job_id": 3}),
+        ("litellm", {"step_limit": 8}, {"model_class": "litellm"}),
+    ],
+)
+def test_inject_instance_scheduling_metadata(model_class, agent_config, expected):
+    """Test per-instance scheduling metadata injection for supported local-serving models."""
+    model_config = {"model_class": model_class}
+    assert _inject_instance_scheduling_metadata(model_config, agent_config, 3) == expected
 
 
 def test_update_preds_file_new_file(tmp_path):

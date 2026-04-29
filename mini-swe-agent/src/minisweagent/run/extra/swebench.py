@@ -119,6 +119,24 @@ def remove_from_preds_file(output_path: Path, instance_id: str):
             output_path.write_text(json.dumps(output_data, indent=2))
 
 
+def _inject_instance_scheduling_metadata(
+    model_config: dict,
+    agent_config: dict,
+    instance_number: int,
+) -> dict:
+    """Inject per-instance scheduling metadata for supported local-serving models."""
+    updated_model_config = model_config.copy()
+    model_class = str(updated_model_config.get("model_class", "")).lower()
+
+    if "vllm" in model_class:
+        updated_model_config["job_id"] = instance_number
+        updated_model_config["step_limit"] = agent_config.get("step_limit", 0)
+    elif "sglang" in model_class:
+        updated_model_config["job_id"] = instance_number
+
+    return updated_model_config
+
+
 def process_instance(
     instance: dict,
     output_dir: Path,
@@ -133,11 +151,11 @@ def process_instance(
     remove_from_preds_file(output_dir / "preds.json", instance_id)
     (instance_dir / f"{instance_id}.traj.json").unlink(missing_ok=True)
 
-    # For vLLM models, pass job_id and step_limit
-    model_config = config.get("model", {}).copy()
-    if model_config.get("model_class") == "vllm" or "vllm" in model_config.get("model_class", "").lower():
-        model_config["job_id"] = instance_number
-        model_config["step_limit"] = config.get("agent", {}).get("step_limit", 0)
+    model_config = _inject_instance_scheduling_metadata(
+        config.get("model", {}),
+        config.get("agent", {}),
+        instance_number,
+    )
 
     model = get_model(config=model_config)
     task = instance["problem_statement"]

@@ -8,6 +8,11 @@ docker run --gpus '"device=4"' \
     lmsysorg/sglang:latest \
     python3 -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --host 0.0.0.0 --port 30000
 
+mini-swe-agent SGLang continuum note:
+- `job_id` is forwarded as SGLang `routing_key` for job-aware queue affinity.
+- Optional `session_params` can be passed through the SGLang model config to keep job state in an SGLang session.
+- SWE-bench batch runs now attach per-instance `job_id` automatically for the SGLang model path.
+
 SGLang Docker Image Details
 Image Information:
 SGLang Version: 0.5.5.post3
